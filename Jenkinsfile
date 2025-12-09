@@ -3,12 +3,14 @@ pipeline {
 
     environment {
         NODE_VERSION = "18"
+        IMAGE_NAME = "my-node-app"
+        CONTAINER_NAME = "my-node-app-container"
+        PORT = "3000"
     }
 
     stages {
         stage('Install Node.js') {
             steps {
-                // Install Node.js if not already installed
                 sh '''
                 if ! command -v node > /dev/null; then
                     curl -fsSL https://deb.nodesource.com/setup_$NODE_VERSION.x | sudo -E bash -
@@ -28,8 +30,28 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                // Run tests defined in package.json
                 sh 'npm test'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t $IMAGE_NAME ."
+            }
+        }
+
+        stage('Deploy Docker Container') {
+            steps {
+                sh '''
+                # Stop and remove existing container if it exists
+                if [ $(docker ps -a -q -f name=$CONTAINER_NAME) ]; then
+                    docker stop $CONTAINER_NAME
+                    docker rm $CONTAINER_NAME
+                fi
+
+                # Run new container
+                docker run -d -p $PORT:$PORT --name $CONTAINER_NAME $IMAGE_NAME
+                '''
             }
         }
     }
